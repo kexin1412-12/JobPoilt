@@ -1,0 +1,8 @@
+{
+  "name": "Internship Pursuit - Smart Career Assistant",
+  "description": "A comprehensive job application tracker and AI-powered interview prep assistant designed for internship seekers. Features job description analysis, interview logging, and AI-driven personalized advice using Google Search grounding.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
