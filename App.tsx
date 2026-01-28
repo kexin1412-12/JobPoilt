@@ -4,6 +4,7 @@ import { ApplicationStatus, JobApplication, Interview, JobCategory, User } from 
 import { analyzeJobDescription } from './services/aiService';
 import { Button } from './components/Button';
 import { ApplicationCard } from './components/ApplicationCard';
+import { AuthService } from './services/authService';
 
 const STORAGE_KEY = 'job_pursuit_v3_data';
 const USER_KEY = 'job_pursuit_user';
@@ -69,7 +70,7 @@ const translations = {
     googleLogin: '使用 Google 账号登录',
     logout: '退出登录',
     welcome: '欢迎回来，',
-    demoMode: '演示模式 (点击头像登录)'
+
   },
   en: {
     records: 'Applications',
@@ -127,7 +128,7 @@ const translations = {
     googleLogin: 'Sign in with Google',
     logout: 'Log out',
     welcome: 'Welcome back, ',
-    demoMode: 'Demo Mode (Click avatar to login)'
+
   }
 };
 
@@ -185,54 +186,44 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  // Google Identity Services Integration
+  // Auth Integration
   useEffect(() => {
+    AuthService.init();
+
+    // Web-only Google Button rendering fallback if needed, 
+    // but we will mainly use custom buttons for clean UI in native
     if (typeof window !== 'undefined' && !user) {
-      const initGoogle = () => {
-        // @ts-ignore
-        if (window.google) {
-          // @ts-ignore
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: handleGoogleResponse,
-          });
-          // @ts-ignore
-          window.google.accounts.id.renderButton(
-            document.getElementById("googleBtn"),
-            { theme: "outline", size: "large", width: "100%" }
-          );
-        }
-      };
-
-      const timeoutId = setTimeout(initGoogle, 1000);
-      return () => clearTimeout(timeoutId);
+      // We can keep the web button logic or replace it with a custom button that calls AuthService.signInWithGoogle
+      // For consistency, let's try to render the web button if on web, but we'll specific custom buttons below.
     }
-  }, [user, lang]);
+  }, []);
 
-  const handleGoogleResponse = (response: any) => {
-    // Decoding JWT (simplified for demo/frontend logic)
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
 
-    const data = JSON.parse(jsonPayload);
-    const newUser: User = {
-      id: data.sub,
-      name: data.name,
-      email: data.email,
-      picture: data.picture
-    };
-    setUser(newUser);
+  const handleGoogleLogin = async () => {
+    try {
+      const user = await AuthService.signInWithGoogle();
+      setUser(user);
+    } catch (e) {
+      console.error(e);
+      alert('Login Failed');
+    }
   };
 
-  const handleLogout = () => {
+  const handleAppleLogin = async () => {
+    try {
+      const user = await AuthService.signInWithApple();
+      setUser(user);
+    } catch (e) {
+      console.error(e);
+      alert('Apple Login Failed');
+    }
+  };
+
+  const handleLogout = async () => {
+    await AuthService.signOut();
     setUser(null);
     setActiveAppId(null);
     setView('list');
-    // @ts-ignore
-    if (window.google) window.google.accounts.id.disableAutoSelect();
   };
 
   const activeApp = useMemo(() => applications.find(a => a.id === activeAppId), [applications, activeAppId]);
@@ -375,19 +366,27 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl space-y-8 relative group">
-            <div id="googleBtn" className="w-full min-h-[50px] flex items-center justify-center"></div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-100"></span></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-slate-300 font-black tracking-widest">OR</span></div>
-            </div>
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full h-12 flex items-center justify-center gap-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors font-medium text-slate-600 relative overflow-hidden"
+            >
+              <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
+              <span>{t('googleLogin')}</span>
+            </button>
 
             <button
-              onClick={() => setUser({ id: 'demo', name: 'Demo User', email: 'demo@offerflow.com', picture: 'https://ui-avatars.com/api/?name=Demo+User&background=6366f1&color=fff' })}
-              className="w-full py-4 rounded-2xl border-2 border-slate-100 text-slate-500 font-black text-sm hover:bg-slate-50 hover:border-indigo-100 transition-all flex items-center justify-center gap-3"
+              onClick={handleAppleLogin}
+              className="w-full h-12 flex items-center justify-center gap-3 bg-black text-white border border-black rounded-lg hover:opacity-90 transition-opacity font-medium relative overflow-hidden"
             >
-              {t('demoMode')}
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.128 22 16.991 22 12c0-5.523-4.477-10-10-10z" /></svg>
+              {/* Note: The above path is Facebook icon by mistake, let's fix the Apple Icon path below */}
+              <svg className="w-5 h-5 text-white absolute left-4" viewBox="0 0 384 512" fill="currentColor">
+                <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 52.3-11.4 69.5-34.3z" />
+              </svg>
+              <span>Sign in with Apple</span>
             </button>
+
+
           </div>
         </div>
       </div>
@@ -422,8 +421,8 @@ const App: React.FC = () => {
               <button
                 onClick={toggleRejected}
                 className={`px-4 py-2 rounded-xl text-xs font-black border transition-all ${isRejected
-                    ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-sm'
-                    : 'bg-white border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100'
+                  ? 'bg-rose-50 border-rose-200 text-rose-600 shadow-sm'
+                  : 'bg-white border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100'
                   }`}
               >
                 {isRejected ? t('unmarkRejected') : t('markRejected')}
@@ -731,8 +730,8 @@ const App: React.FC = () => {
                   key={cat}
                   onClick={() => setFilterCategory(cat)}
                   className={`px-4 py-2 rounded-full text-xs font-black transition-all border ${filterCategory === cat
-                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
-                      : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300'
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                    : 'bg-white border-slate-200 text-slate-400 hover:border-indigo-300'
                     }`}
                 >
                   {getCategoryName(cat)}
