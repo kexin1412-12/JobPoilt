@@ -1,0 +1,15 @@
+# Podfile for Firebase + WebView iOS App
+
+platform :ios, '15.0'
+
+target 'App' do
+  use_frameworks!
+
+  # Firebase
+  pod 'Firebase/Auth'
+  pod 'Firebase/Core'
+  
+  # Google Sign In
+  pod 'GoogleSignIn'
+  
+end

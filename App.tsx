@@ -4,7 +4,7 @@ import { ApplicationStatus, JobApplication, Interview, JobCategory, User } from 
 import { analyzeJobDescription } from './services/aiService';
 import { Button } from './components/Button';
 import { ApplicationCard } from './components/ApplicationCard';
-import { AuthService } from './services/authService';
+import { AuthService } from './services/firebaseAuthService';
 
 const STORAGE_KEY = 'job_pursuit_v3_data';
 const USER_KEY = 'job_pursuit_user';
